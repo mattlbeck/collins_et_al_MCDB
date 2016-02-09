@@ -17,6 +17,8 @@ set -e # exit after an error from any command
 GENOMEFILE="./input_files/bter.fa"
 # An Rfam 11 fasta file is also required to map misc. ncRNAs:
 RFAM11_FASTA="./input_files/rfam11.fa"
+# Change this to where the fastq files are placed
+FASTQ_FILES="./fastq/*fastq" 
 
 GENOMEFORMATTED="genome.fa"
 COMBINEDFASTA="preprocess/combined.fa"
@@ -35,7 +37,7 @@ RFAM_CSV="rfam_mapped.csv"
 mkdir preprocess || true
 mkdir mapped || true
 echo "Preprocessing FASTQ -> FASTA"
-perl ./scripts/preprocess2.pl -c preprocess.config /scratch/mbeckers/bees/fastq/*fastq 2> preprocess/preprocess.log
+perl ./scripts/preprocess2.pl -c preprocess.config $FASTQ_FILES 2> preprocess/preprocess.log
 
 
 # combine fasta files
