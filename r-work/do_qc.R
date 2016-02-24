@@ -6,7 +6,7 @@ library(plyr)
 files <- commandArgs(T)
 mapped.file <- defArgs(files, "../mapped/mapped.bed")
 files <- files[-1]
-combined.counts.file <- defArgs(Files, "../preprocess/combined.csv")
+combined.counts.file <- defArgs(files, "../preprocess/counts.csv")
 files <- files[-1]
 
 
@@ -25,7 +25,7 @@ bees.bed <- as.data.table(readBed(mapped.file))
 bees.bed[,count:=NULL]
 
 # load all counts
-bees.counts <- as.data.table(read.csv(combined.counts.file), header=T, stringsAsFactors=F)
+bees.counts <- as.data.table(read.csv(combined.counts.file, header=T, stringsAsFactors=F))
 
 # original column names if the run.sh script was used to assign 1:16 as sample names
 setnames(bees.counts, paste("X", 1:16, sep=""), bee.samplenames)
@@ -94,6 +94,43 @@ counts.rm <- genome.counts[, c("read",bee.samplenames.rm),with=F][nchar(read) < 
 
 # normalise using the Bootstrap method
 counts.norm.all <- all_norm(counts.rm, c("btsp", "qnorm"))
+
+# Assess normalisations 
+counts.norm.m <- melt_counts(counts.norm.all, bee.samplenames.rm)
+counts.norm.m[, treatment := str_extract(sample, "\\w\\w")]
+counts.norm.m[, replicate := paste0("R",gsub("\\w\\w.(\\d)", "\\1", sample))]
+
+counts.norm.r <- dcast.data.table(counts.norm.m, read + treatment + method ~ replicate, value.var="count")
+counts.norm.r[is.na(counts.norm.r)] <- 0
+counts.norm.r <- cleancounts(counts.norm.r, count.cols=rep.names)
+counts.norm.r[, treatment := factor(treatment, levels=bee.groupnames)]
+
+counts.norm.repc <- spBind("R1,R2"=counts.norm.r[,list(read,method,treatment,ref=R1,obs=R2)], 
+                      "R1,R3"=counts.norm.r[,list(read,method,treatment,ref=R1,obs=R3)], 
+                      "R1,R4"=counts.norm.r[,list(read,method,treatment,ref=R1,obs=R4)], 
+                      "R2,R3"=counts.norm.r[,list(read,method,treatment,ref=R2,obs=R3)], 
+                      "R2,R4"=counts.norm.r[,list(read,method,treatment,ref=R2,obs=R4)], 
+                      "R3,R4"=counts.norm.r[,list(read,method,treatment,ref=R3,obs=R4)],
+                      libname="Comparison")
+# exclude comparisons with excluded replicates
+counts.norm.repc <- counts.norm.repc[!((treatment == "LW" & grepl("4", Comparison)) | 
+                                       (treatment == "LQ" & grepl("2", Comparison)))]
+
+counts.norm.repma <- data.table(counts.norm.repc, getMA(counts.norm.repc[,list(ref,obs)], base=2, offset=1))
+counts.norm.repma[,size := nchar(read)]
+
+for(i in counts.norm.repma[,unique(treatment)]){
+    h <-6 
+    if(grepl("L", i))
+        h <- h - (h/3)
+
+    g <- ggplot(counts.norm.repma[ref>20][obs>20][treatment==i][method != "qnorm"], aes(method, M, dodge=factor(size))) + 
+        geom_hline(yintercept=c(-1,0,1)) +
+        geom_boxplot(outlier.size=0.8) + labs(y=expression(Log[2]*" Fold Change")) +
+        facet_wrap(~ Comparison,ncol=2, scales="free_x")
+    ggsave2(paste(i,"norm_fc_sizeclass.pdf", sep="_"),g, 7, h)
+}
+
 counts.norm.btsp <- counts.norm.all[method=="btsp"]
 counts.norm <- cleancounts(counts.norm.btsp, bee.samplenames.rm)
 counts.norm.m <- melt_counts(counts.norm, bee.samplenames.rm)

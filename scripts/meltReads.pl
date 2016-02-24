@@ -14,7 +14,7 @@
 use strict;
 use warnings;
 use FindBin qw($Bin);
-use lib "./";
+use lib "$Bin";
 use Getopt::Std;
 use Util;
 my $help = '

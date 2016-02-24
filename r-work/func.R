@@ -12,13 +12,14 @@ f <- new.env()
 
 f$theme_min <- theme_bw() + theme(panel.border=element_blank(), axis.line=element_line(), panel.grid=element_blank(), axis.ticks.x=element_blank())
 
-defArgs <- function(args, default)
+defArgs <- function(args, defaultVar)
 {
     # fail-safe method that returns the first argument of the vector args,
     # unless it is empty, where it returnts the default
-    if(length(args) == 0)
-        return default
-    return arg[1]
+    if(length(args) == 0){
+        return(defaultVar)
+    }
+    return(arg[1])
 }
 
 # Quick, convenient saving of a high res png ggplot
